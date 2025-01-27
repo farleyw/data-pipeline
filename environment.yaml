@@ -3,7 +3,7 @@ channels:
   - defaults
   - conda-forge
 dependencies:
-  - python >=3.9, <4.0
+  - python >=3.9, <3.11
   - jupyter
   - ipykernel
   - streamlit==1.29
@@ -20,12 +20,12 @@ dependencies:
       - pylint
       - modAL
       - azure-storage-blob
-      - azure-mgmt-compute>=30.5.0
+      - azure-mgmt-compute
       - azure-identity
-      - azure-mgmt-storage>=21.1.0
-      - azure-common>=1.1.28
-      - azure-core>=1.28.1
-      - azure-mgmt-core>=1.4.0
+      - azure-mgmt-storage
+      - azure-common
+      - azure-core
+      - azure-mgmt-core
       - opencv-python
       - streamlit_option_menu
       - pymssql>=2.2
