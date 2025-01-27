@@ -6,4 +6,4 @@ Set up these notebooks by cloning the repository to your local machine (instruct
 
 Sync any repository updates to your local machine with `git pull`. 
 
-This pipeline uses marimo notebooks. Open the notebook interface in the activated environment by typing `marimo edit`. 
+This pipeline uses [marimo](https://marimo.io/) notebooks. Open the notebook interface in the activated environment by typing `marimo edit`. 
