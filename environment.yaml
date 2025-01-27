@@ -13,7 +13,7 @@ dependencies:
   - matplotlib>=3.5
   - plotly
   - imageio
-  - tensorflow
+  - tensorflow==2.13.1
   - pip
   - pip:
       - tqdm
