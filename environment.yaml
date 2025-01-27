@@ -1,0 +1,36 @@
+name: ifcb-utopia
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python >=3.9, <4.0
+  - jupyter
+  - ipykernel
+  - streamlit==1.29
+  - numpy>=1.2
+  - pandas>=1.4
+  - scikit-learn>=1.2
+  - matplotlib>=3.5
+  - plotly
+  - imageio
+  - tensorflow
+  - pip
+  - pip:
+      - tqdm
+      - pylint
+      - modAL
+      - azure-storage-blob
+      - azure-mgmt-compute
+      - azure-identity
+      - azure-mgmt-storage
+      - azure-common
+      - azure-core
+      - azure-mgmt-core
+      - opencv-python
+      - streamlit_option_menu
+      - pymssql>=2.2
+      - umap-learn
+      - utopia_pipeline_tools
+      - marimo
+      - seaborn
+      - ipython
