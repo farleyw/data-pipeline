@@ -30,7 +30,7 @@ dependencies:
       - streamlit_option_menu
       - pymssql>=2.2
       - umap-learn
-      - utopia-pipeline-tools>=0.3.25
+      - utopia-pipeline-tools>=0.3.28
       - marimo
       - seaborn
       - ipython
