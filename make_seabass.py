@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.10.16"
+__generated_with = "0.10.17"
 app = marimo.App(width="medium")
 
 
@@ -127,6 +127,12 @@ def _(display, existing_csvfilenames, mo):
         {save_sample_filenames}
         """))
     return sample_csv_filenames, save_sample_filenames
+
+
+@app.cell
+def _(gvs):
+    gvs.config_info['connection_string']
+    return
 
 
 @app.cell
@@ -339,7 +345,7 @@ def _(
             container = None
             folder_filepath = ml_filepath_selection.path(0)
 
-        if default_investigators is True:
+        if default_investigators.value is True:
             investigator_info = gvs.default_investigators
         else:
             try: 
