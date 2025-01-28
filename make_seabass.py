@@ -24,13 +24,8 @@ def _():
     import numpy as np
     import pandas as pd
     from utopia_pipeline_tools.classified_to_seabass import MakeSeaBASS as msb
-    return display, list_containers_in_blob, msb, np, pd, upt
-
-
-@app.cell
-def _():
     import global_val_setup as gvs
-    return (gvs,)
+    return display, gvs, list_containers_in_blob, msb, np, pd, upt
 
 
 @app.cell
