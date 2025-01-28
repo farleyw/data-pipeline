@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.10.16"
+__generated_with = "0.10.17"
 app = marimo.App(width="medium")
 
 
@@ -218,16 +218,16 @@ def _(
                                             selection='all')
                 png_df = pd.DataFrame({'filepath': [x for x in all_df['filepath'] if '.png' in x]})
                 csv_df = pd.DataFrame({'filepath': [x for x in all_df['filepath'] if '.csv' in x]})
-                
+
             elif folder_location_selectbox.value == 'local':
                 all_list = retrieve_filepaths_from_local(filepath_form.path(0))
-        
+
                 png_df = pd.DataFrame({'filepath': [x for x in all_list if '.png' in x]})
                 csv_df = pd.DataFrame({'filepath': [x for x in all_list if '.csv' in x]})
-        
+
             png_df.to_csv(f"{container_form.value}_image_filepaths.csv")
             csv_df.to_csv(f"{container_form.value}_sample_metadata_filepaths.csv")
-            
+
             display(png_df.head())
     elif filepath_csv_form.path(0) is not None:
         png_df = pd.read_csv(filepath_csv_form.path(0))
@@ -261,9 +261,9 @@ def _(mo):
 def _(mo):
     mo.md(
         r"""
-        __Current local model file names:__  
-        model-cnn-v1-b3.h5  
-        model-cnn-v1-b3.json  
+        __Current local model file locations:__  
+        assets/models/model-cnn-v1-b3.h5  
+        assets/models/model-cnn-v1-b3.json  
 
         __Current cloud model connection information:__  
         subscription_id: 91804dbe-1fd2-4384-8b66-2b5e4ad1f2f2  
