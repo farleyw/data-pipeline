@@ -33,4 +33,4 @@ dependencies:
       - utopia-pipeline-tools>=0.3.28
       - marimo
       - seaborn
-      - ipython
+      - ipython==8.22.2
