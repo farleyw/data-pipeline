@@ -21,7 +21,7 @@ def _(mo):
     return
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(mo):
     purpose = mo.ui.dropdown(['Database setup', 'Subsequent data ingestion'])
     mo.md(f"""### Select purpose  
@@ -29,7 +29,7 @@ def _(mo):
     return (purpose,)
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(purpose):
     if purpose.value == 'Database setup':
         run_key = 0
@@ -46,7 +46,7 @@ def _(mo):
     return
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(display, mo, run_key):
     if run_key == 0:
         display(mo.md(
@@ -105,7 +105,7 @@ def _(display, mo, run_key):
     return
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(display, mo, run_key):
     if run_key is not None:
         display(mo.md("### Checklist"))
@@ -204,13 +204,6 @@ def _():
 
 
 @app.cell
-def _(upt):
-    import global_val_setup as gvs
-    upt.set_config_vars(gvs.calibration_ratio, gvs.config_info, gvs.default_investigators)
-    return (gvs,)
-
-
-@app.cell
 def _(mo):
     mo.md(r"""---""")
     return
@@ -218,11 +211,11 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""## Checking the config file""")
+    mo.md(r"""## Checking the PIVOT config file""")
     return
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(display, load_config, mo, upt):
     config_dict = load_config()
     display(mo.md(f"""**Azure Blob and SQL Configuration Settings:**  
@@ -258,7 +251,7 @@ def _(mo):
     return
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(display, mo, run_key):
     if run_key == 0:
         select_data = mo.ui.dropdown(['Default', 'Custom Dataset']).form()
@@ -266,7 +259,7 @@ def _(display, mo, run_key):
     return (select_data,)
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(
     config_dict,
     display,
@@ -280,7 +273,8 @@ def _(
             filepath_form = mo.ui.file_browser(initial_path='/', filetypes=['.csv'])
             display(mo.md(f"__Select your dataset .csv file:__ {filepath_form}"))
 
-            blob_containers = list_containers_in_blob(config_dict['connection_string'])
+            blob_containers = list_containers_in_blob(
+                connection_string=config_dict['connection_string'])
             container_form = mo.ui.dropdown(blob_containers).form()
             display(mo.md(f"__Select your blob container:__ {container_form}"))
         else:
@@ -290,7 +284,8 @@ def _(
         filepath_form = mo.ui.file_browser(initial_path='/', filetypes=['.csv'])
         display(mo.md(f"__Select your dataset .csv file:__ {filepath_form}"))
 
-        blob_containers = list_containers_in_blob(config_dict['connection_string'])
+        blob_containers = list_containers_in_blob(
+            connection_string=config_dict['connection_string'])
         container_form = mo.ui.dropdown(blob_containers).form()
         display(mo.md(f"__Select your blob container:__ {container_form}"))
     return blob_containers, container_form, filepath_form
@@ -350,25 +345,19 @@ def _(
 
 
 @app.cell
-def _(loaded_data, pd):
-    pd.Series(loaded_data.index).str.split('ml')
-    return
-
-
-@app.cell
 def _(mo):
     mo.md(r"""---""")
     return
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(display, mo, run_key):
     if run_key == 0:
         display(mo.md(r"""## Building the SQL database"""))
     return
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(sq):
     def build_db(click_value, build_file='../PIVOT/PIVOT/create_db.sql'):
         """ A function to automate the setup of all the tables, stored procedures,
@@ -406,7 +395,7 @@ def _(sq):
     return (build_db,)
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(build_check, build_db, display, mo, run_condition, run_key):
     if run_key == 0:
         builb_db_button = mo.ui.button(value=0, on_click=lambda value: value + 1, 
@@ -417,7 +406,7 @@ def _(build_check, build_db, display, mo, run_condition, run_key):
     return (builb_db_button,)
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(display, mo, sq):
     def check_db_features():
         """ This function looks at the structure of the SQL database and shows features of each table, 
@@ -445,7 +434,7 @@ def _(display, mo, sq):
     return (check_db_features,)
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(check_db_features, display, mo, run_condition, run_key):
     if run_key == 0:
         check_structure_button = mo.ui.button(value=0, on_click=lambda value: 
@@ -456,14 +445,14 @@ def _(check_db_features, display, mo, run_condition, run_key):
     return (check_structure_button,)
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(display, mo, run_key):
     if run_key == 0:
         display(mo.md(r"""---"""))
     return
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(display, mo, run_key):
     if run_key is not None:
         display(mo.md(r"""## Data ingestion"""))
@@ -658,7 +647,7 @@ def _(
     return (models_button,)
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(display, mo, run_key):
     if run_key is not None:
         # predictions
@@ -953,7 +942,7 @@ def _(display, idu, mo, np, pd, sq):
     )
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(
     container_form,
     display,
@@ -983,7 +972,7 @@ def _(mo):
     return
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(display, mo, run_key):
     if run_key is not None:
         display(mo.md(r"""## Final checks"""))

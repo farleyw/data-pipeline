@@ -22,9 +22,9 @@ def _(mo):
         r"""
         __Steps for generating the .csv file of image filepaths, classification probabilities, and predicted labels__  
 
-        1. Enter the Azure Blob connection string in the text box (no apostrophes!).
-        2. Select which container you want to classify from the drop-down menu that appears after you submit the connection string.
-        3. Click the "Retrieve filepaths" button to get the image filepaths from the blob storage. This will take a few minutes for smaller datasets (500,000 images) or about an hour for larger datasets (10,000,000 images). 
+        1. Select whether your images are on the Azure blob or in a local folder. If stored locally, select the `ml` folder with the file browser and input the name of the dataset in the text box (no spaces). If the images are stored in the blob, select which container you want to classify from the drop-down menu.
+        2. If you already have a csv file containing a 'filepath' column of all the IFCB image filepaths (e.g. `ml/{sample_ID}/{image_ID}.png`), select the checkbox and select the file in the corresponding file browser. 
+        3. Otherwise, Click the "Retrieve filepaths" button to get the image filepaths from the blob storage or local folder. This will take a few minutes for smaller datasets (500,000 images) or about 70 minutes for larger datasets (10,000,000 images). The code automatically saves two csv files to your local machine - the list of image filepaths used during the classification process and the list of sample metadata csv filepaths, which can be used later to speed up the process of making SeaBASS files. 
         4. Click the "Predict labels" button to classify the images with the CNN. This will take about 4 hours per 1,000,000 images. I recommend running this portion overnight. If the dataset is particularly large, this may require a VM since a personal computer's working memory can be too small to handle massive datasets. For instance, after 10 hours of runtime on the taraeuropa23 dataset (almost 10,000,000 images), my computer gave me a memory error. 
         5. If no errors occur, a new .csv file has been saved to your local machine!
         """
@@ -44,7 +44,7 @@ def _():
 
     from tensorflow import keras
     from IPython.display import display
-    import utopia_pipeline_tools as upt
+    import global_val_setup as gvs
     from utopia_pipeline_tools.azure_blob_tools import list_containers_in_blob, list_files_in_blob
     from utopia_pipeline_tools.ifcb_data_tools import retrieve_filepaths_from_local
     from utopia_pipeline_tools.cnn_tools import load_local_model, preprocess_input
@@ -52,6 +52,7 @@ def _():
         ContainerClient,
         cv2,
         display,
+        gvs,
         keras,
         list_containers_in_blob,
         list_files_in_blob,
@@ -60,7 +61,6 @@ def _():
         pd,
         preprocess_input,
         retrieve_filepaths_from_local,
-        upt,
     )
 
 
@@ -73,9 +73,10 @@ def _(mo):
 @app.cell
 def _(mo):
     # form to select whether your model is local or on the cloud
-    folder_location_selectbox = mo.ui.dropdown(options=['local', 'cloud'], label="Folder location").form()
+    folder_location_selectbox = mo.ui.dropdown(options=['local', 'cloud'])
 
-    mo.md(f"__Select `ml` folder location:__ {folder_location_selectbox}")
+    mo.md(f"""__Select `ml` folder location:__   
+    {folder_location_selectbox}""")
     return (folder_location_selectbox,)
 
 
@@ -103,37 +104,73 @@ def _(display, folder_location_selectbox, mo):
 def _(
     display,
     folder_location_selectbox,
+    gvs,
     list_containers_in_blob,
     mo,
-    upt,
 ):
     if folder_location_selectbox.value == 'cloud':
-        cstr = upt.config_info['connection_string']
+        cstr = gvs.config_info['connection_string']
         # retrieve list of blob containers
-        blob_containers = list_containers_in_blob(cstr)
+        blob_containers = list_containers_in_blob(connection_string=cstr)
 
         # make a drop-down form to select the container
-        container_form = mo.ui.dropdown(blob_containers).form()
+        container_form = mo.ui.dropdown(blob_containers)
 
-        display(mo.md(f"__Select your blob container:__ {container_form}"))
+        display(mo.md(f"""__Select your blob container:__  
+        {container_form}"""))
     return blob_containers, container_form, cstr
 
 
 @app.cell
-def _(container_form, cstr, filepath_form, folder_location_selectbox):
+def _(mo):
+    csv_filepath_checkbox = mo.ui.checkbox(label='Using existing csv file of image filepaths', value=False)
+
+    mo.md(f"{csv_filepath_checkbox}")
+    return (csv_filepath_checkbox,)
+
+
+@app.cell
+def _(csv_filepath_checkbox, display, mo):
+    if csv_filepath_checkbox.value:
+        filepath_csv_form = mo.ui.file_browser(initial_path='/', selection_mode='file', 
+                                               multiple=False, filetypes=['.csv'],
+                                               label='Select image filepath csv:')
+        display(mo.md(f"{filepath_csv_form}"))
+    return (filepath_csv_form,)
+
+
+@app.cell
+def _(
+    container_form,
+    cstr,
+    csv_filepath_checkbox,
+    filepath_csv_form,
+    filepath_form,
+    folder_location_selectbox,
+):
     # setting the run conditions for all buttons and code that requires information from the container and connection string forms
     try: 
         if folder_location_selectbox.value == 'local':
             if filepath_form.value is not None:
-                run_condition = True
+                if csv_filepath_checkbox.value is True:
+                    if filepath_csv_form.path(0) is not None:
+                        run_condition = True
+                    else:
+                        run_condition = False
+                else:
+                    run_condition = True
             else:
                 run_condition = False
         elif folder_location_selectbox.value == 'cloud':
-            if container_form.value is not None and cstr is not None: 
-            # container and connection string must both be defined
-                run_condition = True
+            if csv_filepath_checkbox.value is True:
+                if container_form.value is not None and cstr is not None and filepath_csv_form.path(0) is not None: 
+                # container and connection string must both be defined
+                    run_condition = True
+                else:
+                    run_condition = False
             else:
-                run_condition = False
+                if container_form.value is not None and cstr is not None:
+                    run_condition = True
         else:
             run_condition = False
     except:
@@ -142,40 +179,66 @@ def _(container_form, cstr, filepath_form, folder_location_selectbox):
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""## Retrieve Filepaths from the Azure Blob""")
+def _(csv_filepath_checkbox, display, mo):
+    if csv_filepath_checkbox.value is False:
+        display(mo.md(r"""## Retrieve Filepaths from the Azure Blob"""))
     return
 
 
 @app.cell
-def _(mo, run_condition):
-    # button to run the cells that retrieve filepaths from the blob and organize them in a dataframe
-    filepath_retrieval_button = mo.ui.run_button(label="Retrieve filepaths", 
-                                                 disabled=bool(run_condition is False))
-    filepath_retrieval_button
+def _(csv_filepath_checkbox, display, mo, run_condition):
+    if csv_filepath_checkbox.value is False:
+        # button to run the cells that retrieve filepaths from the blob and organize them in a dataframe
+        filepath_retrieval_button = mo.ui.run_button(label="Retrieve filepaths", 
+                                                     disabled=bool(run_condition is False))
+        display(filepath_retrieval_button)
     return (filepath_retrieval_button,)
 
 
 @app.cell
 def _(
     container_form,
+    csv_filepath_checkbox,
     display,
+    filepath_csv_form,
     filepath_form,
     filepath_retrieval_button,
     folder_location_selectbox,
+    gvs,
     list_files_in_blob,
     pd,
     retrieve_filepaths_from_local,
 ):
-    if filepath_retrieval_button.value:
-        # call the blob to list all the files in the container
-        if folder_location_selectbox.value == 'cloud':
-            png_df = list_files_in_blob(container_form.value)
-        elif folder_location_selectbox.value == 'local':
-            png_df = pd.DataFrame({'filepath': retrieve_filepaths_from_local(filepath_form.path())})
+    if csv_filepath_checkbox.value is False:
+        if filepath_retrieval_button.value:
+            # call the blob to list all the files in the container
+            if folder_location_selectbox.value == 'cloud':
+                all_df = list_files_in_blob(container=container_form.value, 
+                                            connection_string=gvs.config_info['connection_string'],
+                                            selection='all')
+                png_df = pd.DataFrame({'filepath': [x for x in all_df['filepath'] if '.png' in x]})
+                csv_df = pd.DataFrame({'filepath': [x for x in all_df['filepath'] if '.csv' in x]})
+                
+            elif folder_location_selectbox.value == 'local':
+                all_list = retrieve_filepaths_from_local(filepath_form.path(0))
+        
+                png_df = pd.DataFrame({'filepath': [x for x in all_list if '.png' in x]})
+                csv_df = pd.DataFrame({'filepath': [x for x in all_list if '.csv' in x]})
+        
+            png_df.to_csv(f"{container_form.value}_image_filepaths.csv")
+            csv_df.to_csv(f"{container_form.value}_sample_metadata_filepaths.csv")
+            
+            display(png_df.head())
+    elif filepath_csv_form.path(0) is not None:
+        png_df = pd.read_csv(filepath_csv_form.path(0))
+    return all_df, all_list, csv_df, png_df
 
-        display(png_df.head())
-    return (png_df,)
+
+@app.cell
+def _(display, png_df, run_condition):
+    if run_condition is True:
+        display(png_df['filepath'].head())
+    return
 
 
 @app.cell
@@ -187,9 +250,10 @@ def _(mo):
 @app.cell
 def _(mo):
     # form to select whether your model is local or on the cloud
-    model_location_selectbox = mo.ui.dropdown(options=['local', 'cloud'], label="Model location").form()
+    model_location_selectbox = mo.ui.dropdown(options=['local', 'cloud'])
 
-    mo.md(f"__Select model location:__ {model_location_selectbox}")
+    mo.md(f"""__Select model location:__  
+    {model_location_selectbox}""")
     return (model_location_selectbox,)
 
 
@@ -197,9 +261,9 @@ def _(mo):
 def _(mo):
     mo.md(
         r"""
-        __Current local model filepaths:__  
-        ifcbUTOPIA_dev/model-cnn-v1-b3.h5  
-        ifcbUTOPIA_dev/model-cnn-v1-b3.json  
+        __Current local model file names:__  
+        model-cnn-v1-b3.h5  
+        model-cnn-v1-b3.json  
 
         __Current cloud model connection information:__  
         subscription_id: 91804dbe-1fd2-4384-8b66-2b5e4ad1f2f2  
@@ -216,7 +280,7 @@ def _(mo):
 
 
 @app.cell
-def _(display, mo, model_location_selectbox, upt):
+def _(display, gvs, mo, model_location_selectbox):
     if model_location_selectbox.value == 'local':
         json_filepath = mo.ui.text(label='.json filepath').form()
         h5_filepath = mo.ui.text(label='.h5 filepath').form()
@@ -227,14 +291,14 @@ def _(display, mo, model_location_selectbox, upt):
                 """))
 
     elif model_location_selectbox.value == 'cloud':
-        sub_id = upt.config_info['subscription_id']
-        resource_group = upt.config_info['resource_group']
-        workspace_name = upt.config_info['workspace_name']
-        experiment_name = upt.config_info['experiment_name']
-        api_key = upt.config_info['api_key']
-        model_name = upt.config_info['model_name']
-        endpoint_name = upt.config_info['endpoint_name']
-        deployment_name = upt.config_info['deployment_name']
+        sub_id = gvs.config_info['subscription_id']
+        resource_group = gvs.config_info['resource_group']
+        workspace_name = gvs.config_info['workspace_name']
+        experiment_name = gvs.config_info['experiment_name']
+        api_key = gvs.config_info['api_key']
+        model_name = gvs.config_info['model_name']
+        endpoint_name = gvs.config_info['endpoint_name']
+        deployment_name = gvs.config_info['deployment_name']
 
         display(mo.md(f"""__Review the cloud locations and configuration information of the CNN:__   
                 {sub_id}  
@@ -264,7 +328,7 @@ def _(display, mo, model_location_selectbox, upt):
     )
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(
     api_key,
     deployment_name,
@@ -295,7 +359,7 @@ def _(
     return (model_entry,)
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(mo, model_entry, run_condition):
     # button to run the images through the CNN to predict labels
     prediction_button = mo.ui.run_button(label="Predict labels", 

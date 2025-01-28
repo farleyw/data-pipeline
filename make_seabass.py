@@ -28,9 +28,8 @@ def _():
 
 
 @app.cell
-def _(upt):
+def _():
     import global_val_setup as gvs
-    upt.set_config_vars(gvs.calibration_ratio, gvs.config_info, gvs.default_investigators)
     return (gvs,)
 
 
@@ -135,6 +134,7 @@ def _(
     blob_selection,
     default_investigators,
     display,
+    gvs,
     list_containers_in_blob,
     mo,
 ):
@@ -147,7 +147,7 @@ def _(
     notes = mo.ui.text()
 
     if blob_selection.value == 'blob':
-        container_select = mo.ui.dropdown(list_containers_in_blob())
+        container_select = mo.ui.dropdown(list_containers_in_blob(connection_string=gvs.config_info['connection_string']))
 
         if default_investigators.value:
             display(mo.md(f"""__Enter header information:__  
@@ -321,6 +321,7 @@ def _(
     display,
     emails,
     existing_csvfilenames,
+    gvs,
     investigators,
     ml_filepath_selection,
     mo,
@@ -339,7 +340,7 @@ def _(
             folder_filepath = ml_filepath_selection.path(0)
 
         if default_investigators is True:
-            investigator_info = None
+            investigator_info = gvs.default_investigators
         else:
             try: 
                 keys = investigators.value.split(',')
@@ -395,6 +396,7 @@ def _(
     filepaths_fp,
     flags,
     folder_filepath,
+    gvs,
     investigator_info,
     metadata_file_selection,
     msb,
@@ -409,7 +411,8 @@ def _(
                            container=container, folder_filepath=folder_filepath,
                            investigator_info=investigator_info, stations=stations.value, 
                            flags=flags.value, data_status=data_status.value, 
-                           notes=notes.value, filepaths=filepaths_fp, doc_list=docs.value)
+                           notes=notes.value, filepaths=filepaths_fp, doc_list=docs.value, 
+                           config_info=gvs.config_info, cal_ratio=gvs.calibration_ratio)
     return (seabass_tool,)
 
 
