@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.10.17"
+__generated_with = "0.13.10"
 app = marimo.App(width="medium")
 
 
@@ -20,14 +20,14 @@ def _(mo):
 def _(mo):
     mo.md(
         r"""
-        __Steps for generating the .csv file of image filepaths, classification probabilities, and predicted labels__  
+    __Steps for generating the .csv file of image filepaths, classification probabilities, and predicted labels__  
 
-        1. Select whether your images are on the Azure blob or in a local folder. If stored locally, select the `ml` folder with the file browser and input the name of the dataset in the text box (no spaces). If the images are stored in the blob, select which container you want to classify from the drop-down menu.
-        2. If you already have a csv file containing a 'filepath' column of all the IFCB image filepaths (e.g. `ml/{sample_ID}/{image_ID}.png`), select the checkbox and select the file in the corresponding file browser. 
-        3. Otherwise, Click the "Retrieve filepaths" button to get the image filepaths from the blob storage or local folder. This will take a few minutes for smaller datasets (500,000 images) or about 70 minutes for larger datasets (10,000,000 images). The code automatically saves two csv files to your local machine - the list of image filepaths used during the classification process and the list of sample metadata csv filepaths, which can be used later to speed up the process of making SeaBASS files. 
-        4. Click the "Predict labels" button to classify the images with the CNN. This will take about 4 hours per 1,000,000 images. I recommend running this portion overnight. If the dataset is particularly large, this may require a VM since a personal computer's working memory can be too small to handle massive datasets. For instance, after 10 hours of runtime on the taraeuropa23 dataset (almost 10,000,000 images), my computer gave me a memory error. 
-        5. If no errors occur, a new .csv file has been saved to your local machine!
-        """
+    1. Select whether your images are on the Azure blob or in a local folder. If stored locally, select the `ml` folder with the file browser and input the name of the dataset in the text box (no spaces). If the images are stored in the blob, select which container you want to classify from the drop-down menu.
+    2. If you already have a csv file containing a 'filepath' column of all the IFCB image filepaths (e.g. `ml/{sample_ID}/{image_ID}.png`), select the checkbox and select the file in the corresponding file browser. 
+    3. Otherwise, Click the "Retrieve filepaths" button to get the image filepaths from the blob storage or local folder. This will take a few minutes for smaller datasets (500,000 images) or about 70 minutes for larger datasets (10,000,000 images). The code automatically saves two csv files to your local machine - the list of image filepaths used during the classification process and the list of sample metadata csv filepaths, which can be used later to speed up the process of making SeaBASS files. 
+    4. Click the "Predict labels" button to classify the images with the CNN. This will take about 4 hours per 1,000,000 images. I recommend running this portion overnight. If the dataset is particularly large, this may require a VM since a personal computer's working memory can be too small to handle massive datasets. For instance, after 10 hours of runtime on the taraeuropa23 dataset (almost 10,000,000 images), my computer gave me a memory error. 
+    5. If no errors occur, a new .csv file has been saved to your local machine!
+    """
     )
     return
 
@@ -37,11 +37,14 @@ def _():
     # imports
     import numpy as np
     import pandas as pd
+    from pathlib import Path
+    import os
 
     from azure.storage.blob import ContainerClient
 
     import cv2
 
+    import tensorflow as tf
     from tensorflow import keras
     from IPython.display import display
     import global_val_setup as gvs
@@ -53,14 +56,14 @@ def _():
         cv2,
         display,
         gvs,
-        keras,
         list_containers_in_blob,
         list_files_in_blob,
         load_local_model,
         np,
+        os,
         pd,
         preprocess_input,
-        retrieve_filepaths_from_local,
+        tf,
     )
 
 
@@ -83,7 +86,7 @@ def _(mo):
 @app.cell
 def _(display, folder_location_selectbox, mo):
     if folder_location_selectbox.value == 'local':
-        filepath_form = mo.ui.file_browser(initial_path='/', selection_mode='directory', multiple=False, label="Select folder...")
+        filepath_form = mo.ui.file_browser(initial_path='Z:/projects/gnats/gnats-post2024/2025/', selection_mode='directory', multiple=False, label="Select folder...")
         display(mo.md(f"""__Select your root folder:__  
         This should be the `ml` folder that contains folders of images.  
         {filepath_form}"""))
@@ -101,13 +104,7 @@ def _(display, folder_location_selectbox, mo):
 
 
 @app.cell
-def _(
-    display,
-    folder_location_selectbox,
-    gvs,
-    list_containers_in_blob,
-    mo,
-):
+def _(display, folder_location_selectbox, gvs, list_containers_in_blob, mo):
     if folder_location_selectbox.value == 'cloud':
         cstr = gvs.config_info['connection_string']
         # retrieve list of blob containers
@@ -118,7 +115,7 @@ def _(
 
         display(mo.md(f"""__Select your blob container:__  
         {container_form}"""))
-    return blob_containers, container_form, cstr
+    return container_form, cstr
 
 
 @app.cell
@@ -206,8 +203,8 @@ def _(
     folder_location_selectbox,
     gvs,
     list_files_in_blob,
+    os,
     pd,
-    retrieve_filepaths_from_local,
 ):
     if csv_filepath_checkbox.value is False:
         if filepath_retrieval_button.value:
@@ -219,19 +216,33 @@ def _(
                 png_df = pd.DataFrame({'filepath': [x for x in all_df['filepath'] if '.png' in x]})
                 csv_df = pd.DataFrame({'filepath': [x for x in all_df['filepath'] if '.csv' in x]})
 
+
+            #From Farley:
             elif folder_location_selectbox.value == 'local':
-                all_list = retrieve_filepaths_from_local(filepath_form.path(0))
+                folder_location = filepath_form.path(0)
+                all_list = []
+
+                for root, dirs, files in os.walk(folder_location):
+                    for file in files:
+                        if file.endswith(".png"):
+                            file_path = os.path.join(root, file)
+
+                        if os.path.getsize(file_path) > 2048:  # File size greater than 2KB
+                            all_list.append(file_path)
+            #Original
+           # elif folder_location_selectbox.value == 'local':
+            #    all_list = retrieve_filepaths_from_local(filepath_form.path(0))
 
                 png_df = pd.DataFrame({'filepath': [x for x in all_list if '.png' in x]})
                 csv_df = pd.DataFrame({'filepath': [x for x in all_list if '.csv' in x]})
-
-            png_df.to_csv(f"{container_form.value}_image_filepaths.csv")
-            csv_df.to_csv(f"{container_form.value}_sample_metadata_filepaths.csv")
+    #Farley comment out next 2 lines
+           # png_df.to_csv(f"{container_form.value}_image_filepaths.csv")
+           # csv_df.to_csv(f"{container_form.value}_sample_metadata_filepaths.csv")
 
             display(png_df.head())
     elif filepath_csv_form.path(0) is not None:
         png_df = pd.read_csv(filepath_csv_form.path(0))
-    return all_df, all_list, csv_df, png_df
+    return folder_location, png_df
 
 
 @app.cell
@@ -261,20 +272,20 @@ def _(mo):
 def _(mo):
     mo.md(
         r"""
-        __Current local model file locations:__  
-        assets/models/model-cnn-v1-b3.h5  
-        assets/models/model-cnn-v1-b3.json  
+    __Current local model file locations:__  
+    assets/models/model-cnn-v1-b3.h5  
+    assets/models/model-cnn-v1-b3.json  
 
-        __Current cloud model connection information:__  
-        subscription_id: 91804dbe-1fd2-4384-8b66-2b5e4ad1f2f2  
-        resource_group: UTOPIA  
-        workspace_name: pivot  
-        experiment_name: adt-pivot  
-        api_key: 4B2DTMyhNHgIk3lJtt8MSdBU5QodpCNf  
-        model_name: basemodel  
-        endpoint_name: basemodel-endpoint  
-        deployment_name: pivot-basemodel
-        """
+    __Current cloud model connection information:__  
+    subscription_id: 91804dbe-1fd2-4384-8b66-2b5e4ad1f2f2  
+    resource_group: UTOPIA  
+    workspace_name: pivot  
+    experiment_name: adt-pivot  
+    api_key: 4B2DTMyhNHgIk3lJtt8MSdBU5QodpCNf  
+    model_name: basemodel  
+    endpoint_name: basemodel-endpoint  
+    deployment_name: pivot-basemodel
+    """
     )
     return
 
@@ -384,6 +395,7 @@ def _(
     png_df,
     prediction_button,
     preprocess_input,
+    tf,
 ):
     if prediction_button.value:
         # connecting to the specific container
@@ -396,7 +408,7 @@ def _(
         # set up lists, counters, and splits
         data_index = np.arange(len(png_df.index))
         if len(png_df.index) < 500000:
-            n_splits = int(len(png_df.index)/10000)
+            n_splits = int(len(png_df.index)/100)
         else:
             n_splits = int(len(png_df.index)/100000)
         data_split = np.array_split(data_index, n_splits)
@@ -433,8 +445,13 @@ def _(
 
 
             # predict the labels for all images in the subset
+
             pred_input = np.array(image_list)
-            probabilities = v1_b3_model.predict(pred_input)
+                    #Farley- next two lines
+            pred_input_grey = tf.image.rgb_to_grayscale(pred_input)
+            probabilities = v1_b3_model.predict(pred_input_grey)
+            #Original below 1 line:
+            #probabilities = v1_b3_model.predict(pred_input)
 
             # make a dataframe of the probabilities, filepaths, and predicted labels
             pred_frame = pd.DataFrame(probabilities)
@@ -456,28 +473,7 @@ def _(
 
         # concatenate all of the subset dataframes
         test_eval = pd.concat(test_preds)
-    return (
-        container_client,
-        counter,
-        data_index,
-        data_split,
-        error_list,
-        filepaths,
-        i,
-        image,
-        image_download,
-        image_list,
-        input_path,
-        n_splits,
-        pred_frame,
-        pred_input,
-        probabilities,
-        processed,
-        subset,
-        test_eval,
-        test_preds,
-        v1_b3_model,
-    )
+    return (test_eval,)
 
 
 @app.cell
@@ -485,6 +481,7 @@ def _(
     container_form,
     dataset_name_form,
     display,
+    folder_location,
     folder_location_selectbox,
     test_eval,
 ):
@@ -496,8 +493,20 @@ def _(
         if dataset_name_form.value is None:
             print("ACTION REQUIRED: Enter dataset name")
         else:
-            test_eval.to_csv(f"{dataset_name_form.value}_prediction_results.csv")
+            test_eval.to_csv(f"{folder_location}\\{dataset_name_form.value}_prediction_results.csv")
             display(test_eval.head())
+    return
+
+
+@app.cell
+def _(dataset_name_form, folder_location, os):
+    print(f"{folder_location}{dataset_name_form.value}_prediction_results.csv")
+    print(os.getcwd())
+    return
+
+
+@app.cell
+def _():
     return
 
 
